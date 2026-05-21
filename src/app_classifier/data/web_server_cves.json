@@ -1,0 +1,75 @@
+{
+  "_meta": {
+    "description": "Curated CVE manifest for major web servers. Each lib has an array of CVE entries with `affects_max_version` (inclusive) and the recommended upgrade target. Used by analysis/web_server_vulns.py.",
+    "schema_version": 1,
+    "last_updated": "2026-05-19",
+    "note": "This is a CURATED subset — not exhaustive. For comprehensive scanning, query NVD or the OS-distro security advisory feeds. The entries here are the high-impact CVEs that operators typically miss."
+  },
+  "nginx": {
+    "latest_stable": "1.27.3",
+    "cves": [
+      {"cve": "CVE-2019-9511", "affects_max_version": "1.17.2", "severity": "high",
+        "summary": "HTTP/2 resource exhaustion (Data dribble)", "fix": "1.17.3"},
+      {"cve": "CVE-2019-9513", "affects_max_version": "1.17.2", "severity": "high",
+        "summary": "HTTP/2 resource loop / DoS", "fix": "1.17.3"},
+      {"cve": "CVE-2019-9516", "affects_max_version": "1.17.2", "severity": "high",
+        "summary": "HTTP/2 0-length headers leak / DoS", "fix": "1.17.3"},
+      {"cve": "CVE-2021-23017", "affects_max_version": "1.20.0", "severity": "critical",
+        "summary": "1-byte memory overwrite in resolver — RCE in some configs", "fix": "1.20.1"},
+      {"cve": "CVE-2022-41741", "affects_max_version": "1.23.1", "severity": "high",
+        "summary": "Off-by-one in mp4 module (ngx_http_mp4_module)", "fix": "1.23.2"},
+      {"cve": "CVE-2022-41742", "affects_max_version": "1.23.1", "severity": "high",
+        "summary": "Memory disclosure in mp4 module", "fix": "1.23.2"},
+      {"cve": "CVE-2024-7347", "affects_max_version": "1.26.1", "severity": "medium",
+        "summary": "ngx_http_mp4_module out-of-bounds read on crafted mp4", "fix": "1.27.1"}
+    ]
+  },
+  "apache_httpd": {
+    "latest_stable": "2.4.62",
+    "cves": [
+      {"cve": "CVE-2021-41773", "affects_max_version": "2.4.49", "severity": "critical",
+        "summary": "Path traversal + RCE in alias-matched URLs", "fix": "2.4.50"},
+      {"cve": "CVE-2021-42013", "affects_max_version": "2.4.50", "severity": "critical",
+        "summary": "Incomplete fix for CVE-2021-41773 (path traversal + RCE)", "fix": "2.4.51"},
+      {"cve": "CVE-2022-22720", "affects_max_version": "2.4.52", "severity": "high",
+        "summary": "HTTP request smuggling via invalid request body", "fix": "2.4.53"},
+      {"cve": "CVE-2022-22721", "affects_max_version": "2.4.52", "severity": "high",
+        "summary": "Buffer overflow with large LimitXMLRequestBody", "fix": "2.4.53"},
+      {"cve": "CVE-2023-25690", "affects_max_version": "2.4.55", "severity": "critical",
+        "summary": "HTTP request smuggling in mod_proxy RewriteRule", "fix": "2.4.56"},
+      {"cve": "CVE-2024-38476", "affects_max_version": "2.4.59", "severity": "critical",
+        "summary": "Backend application info disclosure / SSRF in mod_proxy", "fix": "2.4.60"},
+      {"cve": "CVE-2024-38477", "affects_max_version": "2.4.59", "severity": "high",
+        "summary": "Null pointer deref via crafted mod_proxy request", "fix": "2.4.60"}
+    ]
+  },
+  "tomcat": {
+    "latest_stable": "10.1.34",
+    "cves": [
+      {"cve": "CVE-2020-13935", "affects_max_version": "9.0.36", "severity": "high",
+        "summary": "WebSocket frame length mishandling → DoS", "fix": "9.0.37"},
+      {"cve": "CVE-2020-9484", "affects_max_version": "9.0.34", "severity": "high",
+        "summary": "Deserialization → RCE via PersistentManager", "fix": "9.0.35"},
+      {"cve": "CVE-2021-25329", "affects_max_version": "9.0.41", "severity": "high",
+        "summary": "Incomplete fix for CVE-2020-9484 deserialization", "fix": "9.0.43"},
+      {"cve": "CVE-2022-29885", "affects_max_version": "9.0.62", "severity": "high",
+        "summary": "EncryptInterceptor DoS via crafted message", "fix": "9.0.63"},
+      {"cve": "CVE-2024-50379", "affects_max_version": "9.0.97", "severity": "high",
+        "summary": "Race condition in default servlet → RCE on case-insensitive filesystems", "fix": "9.0.98"}
+    ]
+  },
+  "openjdk": {
+    "_note": "JDK versions accumulate CVEs across many CPUs. Below: select security/RCE highlights only.",
+    "latest_stable": "21",
+    "cves": [
+      {"cve": "CVE-2017-3241", "affects_max_version": "8.131", "severity": "critical",
+        "summary": "RMI deserialization → RCE", "fix": "8u151"},
+      {"cve": "CVE-2018-2783", "affects_max_version": "8.171", "severity": "critical",
+        "summary": "JSSE Diffie-Hellman key validation bypass", "fix": "8u181"},
+      {"cve": "CVE-2020-2803", "affects_max_version": "8.241", "severity": "high",
+        "summary": "Concurrency vulnerability in HashMap deserialization", "fix": "8u251"},
+      {"cve": "CVE-2022-21449", "affects_max_version": "15.0.2", "severity": "critical",
+        "summary": "ECDSA signature validation bypass (Psychic Signatures)", "fix": "8u331+, 11.0.15+, 17.0.3+"}
+    ]
+  }
+}

@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "app-classifier"
+version = "0.1.0"
+description = "Point it at a repo, get back 'this is an e-commerce app that does X' — pattern-based application functional-category inference from routes, data models, and README."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Codefixer contributors" },
+]
+keywords = [
+    "code-analysis", "static-analysis", "repository-classifier",
+    "code-understanding", "documentation", "hosting-requirements",
+    "devops", "onboarding",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Documentation",
+    "Topic :: System :: Systems Administration",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+]
+requires-python = ">=3.10"
+# Pure stdlib. The optional LLM enrichment is provider-agnostic — users
+# pass their own callable, so we don't pin OpenAI/Anthropic SDKs here.
+dependencies = []
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+dev = [
+    "ruff>=0.1.0",
+    "mypy>=1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/codefixer/app-classifier"
+Issues = "https://github.com/codefixer/app-classifier/issues"
+Source = "https://github.com/codefixer/app-classifier"
+
+[project.scripts]
+app-classifier = "app_classifier.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+app_classifier = ["data/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q --tb=short"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
