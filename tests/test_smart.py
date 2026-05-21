@@ -112,3 +112,49 @@ def test_classify_smart_auto_load_disabled_returns_baseline():
     )
     # No provider tried, baseline returned with low confidence
     assert result.app_category == "blog / content platform"
+
+
+def test_classify_smart_async_returns_audit_trail_on_escalation():
+    """When confidence is low and provider available, return full AgentClassificationResult."""
+    stub = _make_stub_provider([
+        '{"action": "conclude", "arguments": {"category": "blog / content platform", '
+        '"confidence": 0.88, "features": ["publishing"], '
+        '"description": "Flask blog."}, "reasoning": "x"}',
+    ])
+    result = asyncio.run(classify_smart_async(
+        str(FIXTURES / "blog_flask"),
+        llm_provider=stub,
+        confidence_threshold=0.99,
+        auto_load_provider=False,
+    ))
+    assert hasattr(result, "steps")
+    assert hasattr(result, "llm_calls")
+    assert result.llm_calls == 1
+    assert result.description.app_category == "blog / content platform"
+
+
+def test_classify_smart_async_no_provider_synthesizes_zero_iterations():
+    """No provider configured → return baseline-wrapped AgentClassificationResult."""
+    result = asyncio.run(classify_smart_async(
+        str(FIXTURES / "blog_flask"),
+        confidence_threshold=0.99,
+        auto_load_provider=False,
+    ))
+    assert result.iterations_used == 0
+    assert result.llm_calls == 0
+    assert result.description.app_category == "blog / content platform"
+    assert "No LLM provider" in result.change_reason
+
+
+def test_classify_smart_async_high_confidence_uses_classify_agentic_baseline():
+    """ecommerce_django (conf=0.95) goes through classify_agentic which short-circuits."""
+    stub = _make_stub_provider([])
+    result = asyncio.run(classify_smart_async(
+        str(FIXTURES / "ecommerce_django"),
+        llm_provider=stub,
+        auto_load_provider=False,
+    ))
+    assert result.llm_calls == 0
+    assert result.iterations_used == 0
+    # The classify_agentic baseline shortcut records a conclude_baseline step
+    assert any(s.action == "conclude_baseline" for s in result.steps)
