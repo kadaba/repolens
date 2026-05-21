@@ -8,6 +8,7 @@ from app_classifier.llm.adapters.openai import OpenAIProvider
 from app_classifier.llm.adapters.anthropic import AnthropicProvider
 from app_classifier.llm.adapters.openai_compat import OpenAICompatProvider
 from app_classifier.llm.adapters.openrouter import OpenRouterProvider
+from app_classifier.llm.adapters.ollama import OllamaProvider
 
 
 def test_openai_provider_request_shape():
@@ -159,3 +160,39 @@ def test_openrouter_satisfies_both_contracts():
     assert isinstance(p, LLMProviderProtocol)
     assert callable(p)
     assert p.name == "openrouter"
+
+
+def test_ollama_provider_request_shape():
+    captured = {}
+    async def fake_post(url, body, headers=None, **kw):
+        captured["url"] = url
+        captured["body"] = body
+        return {"response": "ollama response", "done": True}
+    with patch("app_classifier.llm.adapters.ollama._post_json_async", fake_post):
+        p = OllamaProvider(host="http://localhost:11434", model="llama3.2")
+        out = asyncio.run(p.complete("hi", max_tokens=150, temperature=0.0))
+    assert out == "ollama response"
+    assert captured["url"] == "http://localhost:11434/api/generate"
+    assert captured["body"]["model"] == "llama3.2"
+    assert captured["body"]["prompt"] == "hi"
+    assert captured["body"]["stream"] is False
+    assert captured["body"]["options"]["num_predict"] == 150
+    assert captured["body"]["options"]["temperature"] == 0.0
+
+
+def test_ollama_provider_no_auth_header():
+    captured = {}
+    async def fake_post(url, body, headers=None, **kw):
+        captured["headers"] = headers or {}
+        return {"response": "x"}
+    with patch("app_classifier.llm.adapters.ollama._post_json_async", fake_post):
+        asyncio.run(OllamaProvider().complete("x"))
+    assert "Authorization" not in captured["headers"]
+
+
+def test_ollama_satisfies_both_contracts():
+    from app_classifier.llm.provider import LLMProviderProtocol
+    p = OllamaProvider()
+    assert isinstance(p, LLMProviderProtocol)
+    assert callable(p)
+    assert p.name == "ollama"
