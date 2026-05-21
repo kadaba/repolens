@@ -188,3 +188,74 @@ def test_short_llm_response_is_rejected():
 def test_all_fixtures_classify_correctly(fixture, expected_category):
     result = classify(str(FIXTURES / fixture))
     assert result.app_category == expected_category
+
+
+# ─── v0.2.0 — PHP / Laravel / AI-LLM / DVWA / README mining ───
+
+def test_dvwa_php_runtime_detected_from_bare_php():
+    """DVWA has no composer.json — runtime should still detect PHP from .php files."""
+    result = classify(str(FIXTURES / "dvwa_php"))
+    assert result.runtime.get("language") == "php"
+
+
+def test_dvwa_security_training_fingerprint():
+    """DVWA README + filenames should trip the security-training fingerprint."""
+    result = classify(str(FIXTURES / "dvwa_php"))
+    assert result.app_category == "security training / vulnerable app"
+    assert "security training" in result.detected_features
+
+
+def test_dvwa_readme_surfaces_mariadb():
+    """README says 'PHP/MariaDB' — even though no manifest, surface MariaDB."""
+    result = classify(str(FIXTURES / "dvwa_php"))
+    assert "MariaDB" in result.databases
+
+
+def test_ai_llm_app_classified_as_ai():
+    """OpenAI + LangChain + Chroma in deps → AI/LLM application."""
+    result = classify(str(FIXTURES / "ai_llm_app"))
+    assert result.app_category == "AI / LLM application"
+    assert "LLM integration" in result.detected_features
+
+
+def test_ai_llm_app_runtime_unchanged():
+    """AI app is still Python+FastAPI; new fingerprint doesn't break stack detection."""
+    result = classify(str(FIXTURES / "ai_llm_app"))
+    assert result.runtime.get("language") == "python"
+    assert result.framework == "FastAPI"
+
+
+def test_laravel_app_detected_via_composer_json():
+    """composer.json with laravel/framework → PHP runtime + Laravel framework."""
+    result = classify(str(FIXTURES / "laravel_app"))
+    assert result.runtime.get("language") == "php"
+    assert result.framework == "Laravel"
+    assert "^8.1" in (result.runtime.get("version_spec") or "")
+
+
+def test_laravel_app_postgresql_from_readme_mining():
+    """README mentions PostgreSQL — composer.json doesn't ship a driver."""
+    result = classify(str(FIXTURES / "laravel_app"))
+    assert "PostgreSQL" in result.databases
+
+
+def test_markdown_image_only_skipped_in_purpose():
+    """README purpose should skip pure-image paragraphs (Stripe AI-banner regression)."""
+    import tempfile, shutil
+    from app_classifier.classifier import _extract_purpose_from_readme
+    with tempfile.TemporaryDirectory() as td:
+        from pathlib import Path as P
+        (P(td) / "README.md").write_text(
+            "![Hero GIF](https://example.com/banner.gif)\n\n"
+            "This is the actual project description that should be returned."
+        )
+        purpose = _extract_purpose_from_readme(P(td))
+        assert "actual project description" in purpose
+        assert "![Hero" not in purpose
+
+
+def test_existing_fixtures_still_pass():
+    """v0.1.0 fixtures must still classify correctly (no regression)."""
+    assert classify(str(FIXTURES / "ecommerce_django")).app_category == "e-commerce"
+    assert classify(str(FIXTURES / "blog_flask")).app_category == "blog / content platform"
+    assert classify(str(FIXTURES / "admin_express")).app_category == "admin panel / dashboard"

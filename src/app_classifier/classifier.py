@@ -136,8 +136,19 @@ def _read(p: Path, max_bytes: int = 256 * 1024) -> str:
         return ""
 
 
+_MARKDOWN_IMAGE_ONLY = re.compile(r"^!\[[^\]]*\]\([^)]+\)\s*$")
+_MARKDOWN_BADGE_ONLY = re.compile(
+    r"^\[!\[[^\]]*\]\([^)]+\)\]\([^)]+\)\s*$"
+)
+
+
 def _extract_purpose_from_readme(root: Path) -> str:
-    """Pull the first meaningful paragraph from README.md / README.rst."""
+    """Pull the first meaningful paragraph from README.md / README.rst.
+
+    Skips paragraphs that are JUST a Markdown image (banner GIFs) or a
+    badge link — those aren't descriptive prose. Was a real bug: the
+    Stripe AI sample's README starts with a banner image and our purpose
+    extractor was returning the literal ![Hero GIF](...) markdown."""
     for name in ("README.md", "README.rst", "README", "README.txt"):
         p = root / name
         if not p.exists():
@@ -151,6 +162,10 @@ def _extract_purpose_from_readme(root: Path) -> str:
         paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text)]
         for para in paragraphs:
             cleaned = re.sub(r"\s+", " ", para).strip()
+            # Skip pure-image and pure-badge paragraphs — they aren't
+            # describing the project, they're decorations.
+            if _MARKDOWN_IMAGE_ONLY.match(cleaned) or _MARKDOWN_BADGE_ONLY.match(cleaned):
+                continue
             if len(cleaned) >= 40:
                 return cleaned[:600]
     return ""
@@ -384,7 +399,28 @@ def _compose_architecture(hosting, routes, models, purpose) -> str:
 # score to claim the category with at least medium confidence (0.5+).
 # Weights add across signals; we don't double-count signals from the same
 # bucket (a route called both `/cart` and `/cart/items` only counts once).
-_CATEGORY_FINGERPRINTS = [
+_CATEGORY_FINGERPRINTS: List[Dict[str, Any]] = [
+    {
+        "name": "AI / LLM application",
+        "feature_label": "LLM integration",
+        "signals": [
+            (r"\b(?:openai|anthropic|claude|gpt[\-_]?\d|bedrock|cohere|mistral|gemini|grok)\b", 3),
+            (r"\b(?:langchain|llamaindex|haystack|guidance|instructor|litellm|dspy)\b", 3),
+            (r"\b(?:embedding|completion|prompt|tool[_-]call|function[_-]call|streaming)\b", 2),
+            (r"\b(?:vector[\s_-]?db|rag|retrieval|chroma|pinecone|weaviate|qdrant|milvus|faiss)\b", 2),
+            (r"\b(?:llm|tokenizer|fine[_-]?tun|inference|agent[s]?|copilot)\b", 1),
+        ],
+    },
+    {
+        "name": "security training / vulnerable app",
+        "feature_label": "security training",
+        "signals": [
+            (r"\b(?:dvwa|webgoat|juice[\s_-]?shop|mutillidae|bwapp|nodegoat|vulnerablewebapp|hackthissite)\b", 5),
+            (r"\b(?:deliberately|intentionally)[_\s]*vulnerable", 4),
+            (r"\b(?:damn vulnerable|teaching purposes only|security testing)\b", 3),
+            (r"\b(?:ctf|capture[_\s]*the[_\s]*flag|hackme|pwnme|vulnhub)\b", 2),
+        ],
+    },
     {
         "name": "e-commerce",
         "feature_label": "online shopping",

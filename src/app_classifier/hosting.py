@@ -379,6 +379,123 @@ def _analyze_package_json(p: Path, txt: str, report: HostingReport) -> None:
 
 
 # ---------------------------------------------------------------------------
+# PHP detectors — composer.json + standalone .php source
+# ---------------------------------------------------------------------------
+
+
+def _analyze_composer_json(p: Path, txt: str, report: HostingReport) -> None:
+    """Detect PHP runtime + framework + ORM from composer.json."""
+    rel = str(p)
+    try:
+        data = json.loads(txt)
+    except Exception:
+        return
+    if "language" not in report.runtime:
+        report.runtime["language"] = "php"
+        report.signals.append(Signal(rel, "composer.json — PHP project"))
+    require = {**(data.get("require") or {}), **(data.get("require-dev") or {})}
+    php_constraint = require.get("php")
+    if php_constraint and "version_spec" not in report.runtime:
+        report.runtime["version_spec"] = php_constraint
+        report.signals.append(Signal(rel, f"composer php: {php_constraint}"))
+    # Frameworks — most specific first
+    if "laravel/framework" in require:
+        report.web_server.setdefault("framework", "Laravel")
+        report.web_server.setdefault("deployment_target", "PHP-FPM behind nginx/apache (or Octane standalone)")
+        report.signals.append(Signal(rel, "laravel/framework"))
+    elif any(k.startswith("symfony/") for k in require):
+        report.web_server.setdefault("framework", "Symfony")
+        report.web_server.setdefault("deployment_target", "PHP-FPM behind nginx/apache")
+        report.signals.append(Signal(rel, "symfony/* deps"))
+    elif "slim/slim" in require:
+        report.web_server.setdefault("framework", "Slim")
+        report.web_server.setdefault("deployment_target", "PHP-FPM behind nginx/apache")
+    elif "cakephp/cakephp" in require:
+        report.web_server.setdefault("framework", "CakePHP")
+    elif "yiisoft/yii2" in require:
+        report.web_server.setdefault("framework", "Yii 2")
+    elif "codeigniter4/framework" in require:
+        report.web_server.setdefault("framework", "CodeIgniter 4")
+    # ORM / DB drivers
+    if "doctrine/orm" in require or "doctrine/dbal" in require:
+        report.databases.append({"name": "Doctrine ORM", "type": "orm", "source": rel})
+    if "illuminate/database" in require:
+        report.databases.append({"name": "Eloquent ORM", "type": "orm", "source": rel})
+
+
+def _detect_php_from_source(root: Path, report: HostingReport) -> None:
+    """Fallback PHP detection — looks for raw .php files when no composer.json
+    was found. Covers DVWA, WordPress, Drupal, and other pre-composer apps."""
+    if report.runtime.get("language"):
+        return
+    php_files: List[Path] = []
+    for p in root.rglob("*.php"):
+        rel_parts = p.relative_to(root).parts
+        if any(seg in {"vendor", "node_modules", ".git"} for seg in rel_parts):
+            continue
+        php_files.append(p)
+        if len(php_files) >= 5:
+            break
+    if not php_files:
+        return
+    report.runtime["language"] = "php"
+    report.signals.append(Signal(
+        str(php_files[0].relative_to(root)),
+        f"detected {len(php_files)}+ PHP source files (no composer.json)",
+    ))
+    # WordPress / Drupal sniff from any of the first few files
+    for p in php_files:
+        txt = _read_text(p, max_bytes=2048).lower()
+        if "wp-config" in txt or "wordpress" in txt:
+            report.web_server.setdefault("framework", "WordPress")
+            report.signals.append(Signal(str(p.relative_to(root)), "WordPress marker"))
+            break
+        if "drupal" in txt and "drupal_bootstrap" in txt:
+            report.web_server.setdefault("framework", "Drupal")
+            report.signals.append(Signal(str(p.relative_to(root)), "Drupal marker"))
+            break
+    # Default deployment_target for plain PHP apps
+    report.web_server.setdefault(
+        "deployment_target", "PHP-FPM behind nginx / Apache mod_php",
+    )
+
+
+def _enrich_from_readme(root: Path, report: HostingReport) -> None:
+    """Last-resort signals from README prose — used when manifests didn't
+    cover everything. Marked low-confidence so consumers know it's prose-mined."""
+    for name in ("README.md", "README.rst", "README", "README.txt"):
+        readme = root / name
+        if readme.exists():
+            break
+    else:
+        return
+    text = _read_text(readme, max_bytes=16 * 1024).lower()
+    if not text:
+        return
+    # DB hints — only fire if manifests didn't already detect them
+    db_hints = {
+        "mariadb": ("MariaDB", "rdbms"),
+        "postgresql": ("PostgreSQL", "rdbms"),
+        "postgres": ("PostgreSQL", "rdbms"),
+        "mongodb": ("MongoDB", "document"),
+        "redis": ("Redis", "cache"),
+        "sqlite": ("SQLite", "rdbms"),
+        "cassandra": ("Cassandra", "wide_column"),
+        "elasticsearch": ("Elasticsearch", "search"),
+    }
+    seen = {d["name"].lower() for d in report.databases}
+    seen |= {c["name"].lower() for c in report.caches_queues}
+    for kw, (name, kind) in db_hints.items():
+        if kw in text and name.lower() not in seen:
+            target = report.caches_queues if kind in ("cache", "search") else report.databases
+            target.append({
+                "name": name, "type": kind, "source": "README",
+                "confidence": "low",
+            })
+            seen.add(name.lower())
+
+
+# ---------------------------------------------------------------------------
 # Container / k8s detectors
 # ---------------------------------------------------------------------------
 
@@ -587,6 +704,8 @@ def analyze_hosting_requirements(repo_root: str) -> HostingReport:
                 _analyze_requirements_txt(p, txt, report)
             elif name == "package.json":
                 _analyze_package_json(p, txt, report)
+            elif name == "composer.json":
+                _analyze_composer_json(p, txt, report)
             elif name == "Dockerfile":
                 _analyze_dockerfile(p, txt, report)
             elif name in ("docker-compose.yml", "docker-compose.yaml"):
@@ -659,6 +778,14 @@ def analyze_hosting_requirements(repo_root: str) -> HostingReport:
         report.web_server_vulnerabilities = findings_to_dict(ws_findings)
     except Exception as exc:
         logger.debug(f"web-server CVE detection failed: {exc}")
+
+    # Fallback PHP detection — catches DVWA / WordPress / Drupal / Magento
+    # where no composer.json exists. Only fires when no other runtime found.
+    _detect_php_from_source(root, report)
+
+    # README prose mining — last-resort DB/cache hints when manifests didn't
+    # surface them. e.g. DVWA's README says "PHP/MariaDB" but ships no manifest.
+    _enrich_from_readme(root, report)
 
     report.summary = _build_summary(report)
     return report
