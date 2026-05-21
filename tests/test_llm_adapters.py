@@ -7,6 +7,7 @@ import pytest
 from app_classifier.llm.adapters.openai import OpenAIProvider
 from app_classifier.llm.adapters.anthropic import AnthropicProvider
 from app_classifier.llm.adapters.openai_compat import OpenAICompatProvider
+from app_classifier.llm.adapters.openrouter import OpenRouterProvider
 
 
 def test_openai_provider_request_shape():
@@ -127,3 +128,34 @@ def test_openai_compat_satisfies_both_contracts():
     assert isinstance(p, LLMProviderProtocol)
     assert callable(p)
     assert p.name == "openai_compat"
+
+
+def test_openrouter_provider_adds_required_headers():
+    captured = {}
+    async def fake_post(url, body, headers=None, **kw):
+        captured["headers"] = headers
+        captured["url"] = url
+        captured["body"] = body
+        return {"choices": [{"message": {"content": "router response"}}]}
+    with patch("app_classifier.llm.adapters.openrouter._post_json_async", fake_post):
+        p = OpenRouterProvider(
+            api_key="sk-or-test",
+            model="anthropic/claude-haiku-4-5-20251001",
+            app_name="my-app",
+            app_url="https://example.com",
+        )
+        out = asyncio.run(p.complete("hi"))
+    assert out == "router response"
+    assert captured["url"] == "https://openrouter.ai/api/v1/chat/completions"
+    assert captured["headers"]["Authorization"] == "Bearer sk-or-test"
+    assert captured["headers"]["HTTP-Referer"] == "https://example.com"
+    assert captured["headers"]["X-Title"] == "my-app"
+    assert captured["body"]["model"] == "anthropic/claude-haiku-4-5-20251001"
+
+
+def test_openrouter_satisfies_both_contracts():
+    from app_classifier.llm.provider import LLMProviderProtocol
+    p = OpenRouterProvider(api_key="sk-or-x")
+    assert isinstance(p, LLMProviderProtocol)
+    assert callable(p)
+    assert p.name == "openrouter"
