@@ -6,6 +6,7 @@ import pytest
 
 from app_classifier.llm.adapters.openai import OpenAIProvider
 from app_classifier.llm.adapters.anthropic import AnthropicProvider
+from app_classifier.llm.adapters.openai_compat import OpenAICompatProvider
 
 
 def test_openai_provider_request_shape():
@@ -87,3 +88,42 @@ def test_anthropic_provider_satisfies_both_contracts():
     p = AnthropicProvider(api_key="x")
     assert isinstance(p, LLMProviderProtocol)
     assert callable(p)
+
+
+def test_openai_compat_provider_no_api_key_allowed():
+    """Local servers (LM Studio, llama.cpp) often have no auth."""
+    captured = {}
+    async def fake_post(url, body, headers=None, **kw):
+        captured["headers"] = headers or {}
+        return {"choices": [{"message": {"content": "ok"}}]}
+    with patch("app_classifier.llm.adapters.openai_compat._post_json_async", fake_post):
+        p = OpenAICompatProvider(
+            base_url="http://localhost:1234/v1", api_key=None, model="llama-3"
+        )
+        out = asyncio.run(p.complete("x"))
+    assert out == "ok"
+    assert "Authorization" not in captured["headers"]
+
+
+def test_openai_compat_provider_with_api_key():
+    captured = {}
+    async def fake_post(url, body, headers=None, **kw):
+        captured["headers"] = headers or {}
+        captured["url"] = url
+        return {"choices": [{"message": {"content": "ok"}}]}
+    with patch("app_classifier.llm.adapters.openai_compat._post_json_async", fake_post):
+        p = OpenAICompatProvider(
+            base_url="https://api.groq.com/openai/v1",
+            api_key="gsk_x", model="llama-3.3-70b"
+        )
+        asyncio.run(p.complete("x"))
+    assert captured["url"] == "https://api.groq.com/openai/v1/chat/completions"
+    assert captured["headers"]["Authorization"] == "Bearer gsk_x"
+
+
+def test_openai_compat_satisfies_both_contracts():
+    from app_classifier.llm.provider import LLMProviderProtocol
+    p = OpenAICompatProvider(base_url="http://x", model="m")
+    assert isinstance(p, LLMProviderProtocol)
+    assert callable(p)
+    assert p.name == "openai_compat"
