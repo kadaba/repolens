@@ -37,6 +37,9 @@ from app_classifier.llm import (
     OpenAIProvider, AnthropicProvider, OpenRouterProvider,
     OllamaProvider, OpenAICompatProvider,
 )
+from app_classifier.codemap import (
+    map_code, CodeMap, FileNode, FunctionNode,
+)
 
 __version__ = "0.4.1"
 
@@ -63,6 +66,8 @@ __all__ = [
     "LLMProviderProtocol", "LLMConfigError", "load_provider",
     "OpenAIProvider", "AnthropicProvider", "OpenRouterProvider",
     "OllamaProvider", "OpenAICompatProvider",
+    # Code mapping (v0.5.0)
+    "map_code", "CodeMap", "FileNode", "FunctionNode",
 ]
 
 # Agentic API (imported lazily to keep `import app_classifier` cheap for

@@ -1,6 +1,10 @@
+from pathlib import Path
+
 import pytest
 
 from app_classifier.codemap.types import CodeMap, FileNode, FunctionNode
+
+FIX = Path(__file__).parent / "fixtures"
 
 
 def _make_simple_graph():
@@ -72,3 +76,24 @@ def test_impact_of_function_target():
     )
     # Changing a.py:helper impacts b.py (where caller lives).
     assert g.impact_of("a.py:helper", transitive=True) == ["b.py"]
+
+
+def test_map_code_on_ecommerce_django_returns_codemap():
+    from app_classifier import map_code, CodeMap
+    cm = map_code(FIX / "ecommerce_django")
+    assert isinstance(cm, CodeMap)
+    assert len(cm.files) >= 1
+    assert len(cm.entry_points) >= 1
+
+
+def test_map_code_python_function_call_optional():
+    """include_function_calls=False skips py_calls — should produce empty functions dict."""
+    from app_classifier import map_code
+    cm = map_code(FIX / "blog_flask", include_function_calls=False)
+    assert cm.functions == {}
+
+
+def test_map_code_top_level_public_imports():
+    from app_classifier import map_code, CodeMap, FileNode, FunctionNode
+    assert callable(map_code)
+    assert CodeMap and FileNode and FunctionNode
