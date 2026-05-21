@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "app-classifier"
-version = "0.2.0"
+version = "0.5.0"
 description = "Point it at a repo, get back 'this is an e-commerce app that does X' — pattern-based application functional-category inference from routes, data models, and README."
 readme = "README.md"
 license = { text = "MIT" }

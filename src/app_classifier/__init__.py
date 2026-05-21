@@ -44,7 +44,7 @@ from app_classifier.smart import (
     classify_smart, classify_smart_async,
 )
 
-__version__ = "0.4.1"
+__version__ = "0.5.0"
 
 __all__ = [
     # Primary API
