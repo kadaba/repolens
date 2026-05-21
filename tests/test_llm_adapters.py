@@ -5,6 +5,7 @@ from unittest.mock import patch
 import pytest
 
 from app_classifier.llm.adapters.openai import OpenAIProvider
+from app_classifier.llm.adapters.anthropic import AnthropicProvider
 
 
 def test_openai_provider_request_shape():
@@ -56,3 +57,33 @@ def test_openai_provider_custom_base_url():
         )
         asyncio.run(provider.complete("x"))
     assert captured["url"] == "http://localhost:8000/v1/chat/completions"
+
+
+def test_anthropic_provider_request_shape():
+    captured = {}
+    async def fake_post(url, body, headers=None, **kw):
+        captured["url"] = url
+        captured["body"] = body
+        captured["headers"] = headers
+        return {"content": [{"type": "text", "text": "anthropic response"}]}
+
+    with patch("app_classifier.llm.adapters.anthropic._post_json_async", fake_post):
+        provider = AnthropicProvider(
+            api_key="sk-ant-test", model="claude-haiku-4-5-20251001"
+        )
+        out = asyncio.run(provider.complete("hi", max_tokens=200, temperature=0.0))
+
+    assert out == "anthropic response"
+    assert captured["url"] == "https://api.anthropic.com/v1/messages"
+    assert captured["headers"]["x-api-key"] == "sk-ant-test"
+    assert captured["headers"]["anthropic-version"] == "2023-06-01"
+    assert captured["body"]["model"] == "claude-haiku-4-5-20251001"
+    assert captured["body"]["max_tokens"] == 200
+    assert captured["body"]["messages"] == [{"role": "user", "content": "hi"}]
+
+
+def test_anthropic_provider_satisfies_both_contracts():
+    from app_classifier.llm.provider import LLMProviderProtocol
+    p = AnthropicProvider(api_key="x")
+    assert isinstance(p, LLMProviderProtocol)
+    assert callable(p)
