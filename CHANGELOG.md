@@ -7,6 +7,115 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] — TBD-2026
+
+### Added — multi-provider LLM layer
+
+- **`LLMProviderProtocol`** — new typed Protocol for adapter classes
+- **5 stdlib-only adapters** — `OpenAIProvider`, `AnthropicProvider`, `OpenRouterProvider`, `OllamaProvider`, `OpenAICompatProvider`
+- **OpenAICompat covers** LM Studio, vLLM, llama.cpp server, Groq, Together, Fireworks, DeepSeek, Mistral — anything OpenAI-compatible
+- **`load_provider()`** — resolves a provider from env var → `~/.app-classifier/providers.json` → autodetect, with `${VAR}` interpolation
+- **Zero new runtime deps.** All adapters use stdlib `urllib`. Optional extras for official SDK clients: `pip install app-classifier[openai]`, `[anthropic]`, `[all]`
+
+### Added — `classify_smart()`
+
+- **`classify_smart(repo)`** — rule-based first; escalates to the agentic loop only when confidence is below threshold AND a provider is configured. Returns `AppDescription`.
+- **`classify_smart_async(repo)`** — async variant returning the full `AgentClassificationResult` audit trail.
+- **Graceful degradation** — no provider configured → returns the low-confidence baseline rather than raising.
+
+### Added — `map_code()` non-LLM impact analysis
+
+- **`map_code(repo)`** — produces a `CodeMap` with file-dependency graph (Python, JS/TS, Java, Go, Ruby, PHP) plus a Python function-call graph.
+- **`CodeMap.impact_of(target, transitive=True)`** — BFS over the reverse graph with cycle detection. Supports file paths and `"file:function"` keys.
+- **Entry-point detection** — zero-importer files **plus** framework markers (`@app.route`, `@RequestMapping`, Express `app.get`, `func main()`, etc.).
+- **New fixtures** — `tests/fixtures/go_service`, `ruby_sinatra`, `java_spring`.
+
+### Compatibility
+
+- Backwards compatible. The existing `LLMProvider` Callable alias in `classifier.py` is **not removed** — both `LLMProvider` (Callable) and `LLMProviderProtocol` (Protocol) coexist.
+- All existing tests pass unchanged.
+- `classify()` and `classify_smart()` (with no provider configured) make **no network calls**.
+
+## [0.4.1] — 2026-05-22
+
+### Fixed — fingerprint over-matching from v0.4.0
+
+The 18 new app fingerprints introduced in v0.4.0 occasionally won verdicts on
+weak single-token evidence. The scoring algorithm now supports a `min_signals`
+field per fingerprint that requires N distinct signal rows to match before
+the category contributes to scoring.
+
+- **marketplace / two-sided platform** (`min_signals: 2`) — a lone
+  "multi-vendor" mention in an e-commerce README no longer flips the
+  verdict away from "e-commerce".
+- **FinTech / banking / payments** (`min_signals: 2`) — a single "Stripe"
+  mention (used by most e-commerce checkout flows) is no longer enough to
+  classify an app as FinTech.
+- **admin panel / dashboard** (`min_signals: 2`) — a lone "dashboard" word
+  (which appears in customer portals, BI tools, vendor consoles) no longer
+  classifies the app as an admin panel. The permission/role/grant/revoke
+  row must also fire.
+
+Concrete impact: `tests/fixtures/ecommerce_django` confidence rose
+**0.72 → 0.95**, restoring the agentic short-circuit
+(`test_agent_uses_baseline_when_confidence_high` now passes). The Laravel
+"Customer Portal" fixture is no longer misclassified as an admin panel.
+
+### Compatibility
+
+- Backwards compatible. `min_signals` defaults to 1; existing fingerprints
+  behave unchanged unless explicitly opted in.
+
+## [0.4.0] — 2026-05-21
+
+### Added — 18 new app fingerprints
+
+- data analytics / dashboard (Grafana / Superset / Metabase / KPI prose)
+- marketplace / two-sided platform (seller+buyer, commission, payouts)
+- real-time collaboration (WebSocket, CRDT, Yjs, Liveblocks, multiplayer)
+- CMS / wiki / static site (WordPress / Strapi / Sanity / Hugo / Astro)
+- DevOps / CI-CD tooling (Jenkins / GitHub Actions / Terraform / k8s / Helm)
+- crypto / Web3 / blockchain (Solidity / ethers / wagmi / NFT / DeFi)
+- streaming / media (HLS / DASH / WebRTC / transcoding / CDN)
+- forum / community / Q&A (Discourse / threads / upvote / reputation)
+- customer support / helpdesk (Zendesk / tickets / SLA / chatbot)
+- CRM / sales pipeline (Salesforce / HubSpot / leads / opportunities)
+- project management / issue tracker (Jira / Linear / sprint / kanban)
+- search engine / discovery (Elasticsearch / Meilisearch / Algolia / facets)
+- healthcare / EHR / medical (HIPAA / FHIR / HL7 / patient / clinician)
+- FinTech / banking / payments (Stripe / Plaid / ACH / SWIFT / KYC)
+- IoT / device management (MQTT / LoRaWAN / Zigbee / Home Assistant)
+- ML / data science pipeline (pandas / pytorch / Jupyter / MLflow / dbt)
+- mobile application (React Native / Flutter / Android / iOS)
+- desktop application (Electron / Tauri / Qt / WPF)
+- gaming / game backend (Unity / Unreal / matchmaking / PlayFab)
+
+### Added — 6 new language detectors
+
+- **Ruby** via `Gemfile` — detects Rails / Sinatra / Hanami / Roda + DB drivers (pg / mysql2 / sqlite3) + Sidekiq
+- **.NET / C#** via `.csproj` / `.fsproj` / `.vbproj` — detects ASP.NET Core + Entity Framework Core + Npgsql / MySqlConnector
+- **Rust** via `Cargo.toml` — detects Actix Web / Axum / Rocket / Warp / Poem / Tide + SQLx / Diesel
+- **Elixir** via `mix.exs` — detects Phoenix + Ecto + Postgrex + Redix
+- **Dart / Flutter** via `pubspec.yaml`
+- **Mobile fallback** — directory layout (`android/` + `ios/`) detects React Native; pure Android Manifest detects Android Native; Podfile / Package.swift detects iOS
+
+### Compatibility
+
+- Backwards compatible. Existing 42 tests still pass.
+
+## [0.3.0] — 2026-05-21
+
+### Added
+
+- **Source-file scanning for AI/LLM library imports** — walks up to 80 source files (Python/JS/TS/Go/Ruby) for `import openai`, `require('langchain')`, `from anthropic`, `huggingface_hub`, `chromadb`, etc. Closes the Stripe-AI-sample gap: even when routes + models are sparse, an `import openai` in any source file lights up the AI fingerprint.
+- **Full-README haystack** — pattern matcher now reads up to 16KB of the README (previously only the first 600 chars). Catches "AI-powered" / "GenAI" / "agentic" prose buried below the banner.
+- **Broader AI/LLM fingerprint** — adds generic AI terminology (`AI-powered`, `AI-driven`, `GenAI`, `chatbot`, `conversational AI`, `agentic`, `machine learning`, etc.) alongside the specific SDK names. No more false-negatives on "we built an AI agent" prose.
+- More AI SDK keywords: `crewai`, `autogen`, `transformers`, `sentence-transformers`, `huggingface_hub`, `ollama`, `llama.cpp`, `pgvector`.
+
+### Compatibility
+
+- Backwards compatible. `_infer_app_category` gains an optional `root` parameter (None-default preserves old behavior for direct callers).
+
 ## [0.2.0] — 2026-05-21
 
 ### Added
