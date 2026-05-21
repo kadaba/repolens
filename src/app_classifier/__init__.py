@@ -40,6 +40,9 @@ from app_classifier.llm import (
 from app_classifier.codemap import (
     map_code, CodeMap, FileNode, FunctionNode,
 )
+from app_classifier.smart import (
+    classify_smart, classify_smart_async,
+)
 
 __version__ = "0.4.1"
 
@@ -68,6 +71,8 @@ __all__ = [
     "OllamaProvider", "OpenAICompatProvider",
     # Code mapping (v0.5.0)
     "map_code", "CodeMap", "FileNode", "FunctionNode",
+    # Smart classification (v0.5.0)
+    "classify_smart", "classify_smart_async",
 ]
 
 # Agentic API (imported lazily to keep `import app_classifier` cheap for

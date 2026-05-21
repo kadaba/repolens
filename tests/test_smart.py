@@ -158,3 +158,9 @@ def test_classify_smart_async_high_confidence_uses_classify_agentic_baseline():
     assert result.iterations_used == 0
     # The classify_agentic baseline shortcut records a conclude_baseline step
     assert any(s.action == "conclude_baseline" for s in result.steps)
+
+
+def test_public_imports():
+    from app_classifier import classify_smart, classify_smart_async
+    assert callable(classify_smart)
+    assert callable(classify_smart_async)
