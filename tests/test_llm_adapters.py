@@ -196,3 +196,22 @@ def test_ollama_satisfies_both_contracts():
     assert isinstance(p, LLMProviderProtocol)
     assert callable(p)
     assert p.name == "ollama"
+
+
+def test_public_imports_from_app_classifier():
+    """All five providers + Protocol + load_provider importable from top-level package."""
+    from app_classifier import (
+        LLMProviderProtocol,
+        LLMConfigError,
+        load_provider,
+        OpenAIProvider,
+        AnthropicProvider,
+        OpenRouterProvider,
+        OllamaProvider,
+        OpenAICompatProvider,
+    )
+    # Sanity: existing public symbols still resolve
+    from app_classifier import classify, classify_agentic, AppDescription
+    assert callable(classify)
+    assert callable(classify_agentic)
+    assert AppDescription is not None

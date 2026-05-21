@@ -32,8 +32,13 @@ from app_classifier.hosting import (
     Signal,
     analyze_hosting_requirements,
 )
+from app_classifier.llm import (
+    LLMProviderProtocol, LLMConfigError, load_provider,
+    OpenAIProvider, AnthropicProvider, OpenRouterProvider,
+    OllamaProvider, OpenAICompatProvider,
+)
 
-__version__ = "0.2.0"
+__version__ = "0.4.1"
 
 __all__ = [
     # Primary API
@@ -54,6 +59,10 @@ __all__ = [
     "AgentClassificationResult",
     "AgentStep",
     "SubappClassification",
+    # LLM provider layer (v0.5.0)
+    "LLMProviderProtocol", "LLMConfigError", "load_provider",
+    "OpenAIProvider", "AnthropicProvider", "OpenRouterProvider",
+    "OllamaProvider", "OpenAICompatProvider",
 ]
 
 # Agentic API (imported lazily to keep `import app_classifier` cheap for
