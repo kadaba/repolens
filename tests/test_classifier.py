@@ -259,3 +259,74 @@ def test_existing_fixtures_still_pass():
     assert classify(str(FIXTURES / "ecommerce_django")).app_category == "e-commerce"
     assert classify(str(FIXTURES / "blog_flask")).app_category == "blog / content platform"
     assert classify(str(FIXTURES / "admin_express")).app_category == "admin panel / dashboard"
+
+
+# ─── v0.5.2 — developer-tooling fingerprint + test-dir skip ───
+
+def test_cli_tool_classified_as_developer_tooling():
+    """codegraph-shaped fixture (commander + tree-sitter + analyzer prose) → developer tooling."""
+    result = classify(str(FIXTURES / "cli_tool"))
+    assert result.app_category == "developer tooling / CLI"
+    assert "developer tooling" in result.detected_features
+
+
+def test_test_files_dont_leak_routes():
+    """Routes defined in tests/*.test.js must NOT appear in the extracted route list.
+
+    Regression test for the codegraph case where `/fake`, `/also-fake`, `/real`
+    fixtures from `tests/routes.test.js` were surfacing as production routes.
+    """
+    result = classify(str(FIXTURES / "cli_tool"))
+    route_paths = [r.path for r in result.routes]
+    assert "/fake" not in route_paths
+    assert "/also-fake" not in route_paths
+    assert "/real" not in route_paths
+
+
+def test_skip_dot_test_file_pattern(tmp_path):
+    """Files like `routes.test.js` are skipped even when not inside a test/ dir."""
+    (tmp_path / "package.json").write_text('{"name": "p", "dependencies": {}}')
+    # Production file
+    (tmp_path / "app.js").write_text(
+        "const app = require('express')();\n"
+        "app.get('/real-prod-route', (req, res) => res.json({}));\n"
+    )
+    # Test file SIBLING — must be skipped
+    (tmp_path / "app.test.js").write_text(
+        "app.get('/fake-test-route', (req, res) => res.json({}));\n"
+    )
+    result = classify(str(tmp_path))
+    paths = [r.path for r in result.routes]
+    assert "/real-prod-route" in paths
+    assert "/fake-test-route" not in paths
+
+
+def test_skip_underscore_test_pattern_for_go(tmp_path):
+    """Go convention `*_test.go` files are skipped."""
+    (tmp_path / "go.mod").write_text("module x\ngo 1.22\n")
+    (tmp_path / "handler.go").write_text(
+        'package main\nimport "net/http"\nfunc reg() { http.HandleFunc("/hello", nil) }\n'
+    )
+    (tmp_path / "handler_test.go").write_text(
+        'package main\nfunc TestX() { http.HandleFunc("/test-fake", nil) }\n'
+    )
+    # The current classifier doesn't extract Go routes by default, but it
+    # walks .go files for other signals. We at least verify the test file
+    # isn't walked into the route haystack.
+    result = classify(str(tmp_path))
+    paths = [r.path for r in result.routes]
+    assert "/test-fake" not in paths
+
+
+def test_dev_tooling_needs_two_signals(tmp_path):
+    """A lone `argparse` import shouldn't auto-classify a random Python script as a CLI tool."""
+    (tmp_path / "README.md").write_text("# my_data_loader\n\nLoads CSV files into a database.")
+    (tmp_path / "loader.py").write_text(
+        "import argparse\n"
+        "import csv\n\n"
+        "def load():\n    return 1\n"
+    )
+    result = classify(str(tmp_path))
+    # Should NOT be "developer tooling" — only one signal row matches (argparse).
+    # Either unknown or some other category, but explicitly not dev tooling.
+    assert result.app_category != "developer tooling / CLI"

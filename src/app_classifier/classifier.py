@@ -111,7 +111,18 @@ _SKIP_DIRS = {
     "dist", "out", "__pycache__", ".pytest_cache", ".tox", ".gradle",
     ".idea", ".vscode", "coverage", ".cache",
     ".cloned_repos", ".planning", "org_databases",
+    # Test directories — route fixtures in test files were leaking into the
+    # extracted route list (e.g., codegraph showed /fake, /also-fake routes
+    # from its test suite).
+    "tests", "test", "__tests__", "spec", "specs", "e2e", "cypress", "playwright",
+    "__mocks__", "fixtures",
 }
+
+# Test-file naming patterns — skip files like `foo.test.js`, `bar.spec.ts`,
+# `baz_test.py`, `qux_spec.rb`. These contain route fixtures, not real routes.
+_TEST_FILE_PATTERNS = (
+    ".test.", ".spec.", "_test.", "_spec.",
+)
 
 
 def _walk(root: Path, exts: tuple):
@@ -123,6 +134,13 @@ def _walk(root: Path, exts: tuple):
         except ValueError:
             rel_parts = p.parts
         if any(seg in _SKIP_DIRS for seg in rel_parts):
+            continue
+        # Skip test files even when they live outside test directories
+        # (common in Go, Rust where tests sit next to source).
+        name_lower = p.name.lower()
+        if any(pat in name_lower for pat in _TEST_FILE_PATTERNS):
+            continue
+        if name_lower.endswith("_test.go") or name_lower.endswith("test.rs"):
             continue
         if str(p).lower().endswith(exts):
             yield p
@@ -419,6 +437,30 @@ _CATEGORY_FINGERPRINTS: List[Dict[str, Any]] = [
             (r"\b(?:deliberately|intentionally)[_\s]*vulnerable", 4),
             (r"\b(?:damn vulnerable|teaching purposes only|security testing)\b", 3),
             (r"\b(?:ctf|capture[_\s]*the[_\s]*flag|hackme|pwnme|vulnhub)\b", 2),
+        ],
+    },
+    {
+        "name": "developer tooling / CLI",
+        "feature_label": "developer tooling",
+        # Require 2+ signal rows so a stray "argparse" import in some
+        # generic Python script doesn't auto-classify the whole repo as
+        # a CLI tool. Real dev tools light up multiple rows.
+        "min_signals": 2,
+        "signals": [
+            # CLI framework names — strongest signal
+            (r"\b(?:commander|yargs|click|argparse|typer|cobra|clap|kingpin|oclif|cac|sade|cmd)\b", 4),
+            # Code-analysis / linting / parsing primitives
+            (r"\b(?:ast|tree[_\s-]?sitter|tokenizer|lexer|parser|grammar|babel[_\s-]?parser|esprima|acorn)\b", 3),
+            (r"\b(?:lint|linter|formatter|prettier|eslint|ruff|black|gofmt|rustfmt|clippy|pylint|flake8)\b", 3),
+            # Repo/codebase analysis terminology
+            (r"\b(?:repository|repo|codebase|source[_\s-]?tree|call[_\s-]?graph|dependency[_\s-]?graph|sbom)\b", 2),
+            (r"\b(?:code[_\s-]?review|code[_\s-]?analysis|static[_\s-]?analysis|sast|dast|cve)\b", 3),
+            # CLI primitives — generic but useful as supporting evidence
+            (r"\b(?:command[_\s-]?line|cli|stdin|stdout|stderr|tty|shell|terminal|prompt)\b", 1),
+            # Dev-workflow tools
+            (r"\b(?:git[_\s-]?diff|git[_\s-]?log|git[_\s-]?blame|pre[_\s-]?commit|husky|lint[_\s-]?staged)\b", 2),
+            # Generator / scaffold / migration tooling
+            (r"\b(?:scaffold|generator|boilerplate|migration|codemod|jscodeshift|recast)\b", 2),
         ],
     },
     {

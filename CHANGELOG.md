@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] — 2026-05-22
+
+### Added
+
+- **New fingerprint: `developer tooling / CLI`** — recognizes code-analysis
+  tools, linters, formatters, scaffolders, and CLI utilities. Signals include
+  CLI framework names (`commander`, `yargs`, `click`, `argparse`, `cobra`,
+  `clap`, `oclif`, `typer`), parsing infra (`ast`, `tree-sitter`, `parser`,
+  `lexer`), linting/formatting tools (`eslint`, `ruff`, `prettier`, `gofmt`),
+  and code-analysis terminology (`call graph`, `dependency graph`, `static
+  analysis`, `sast`, `codebase`, `code review`).
+- Requires 2+ distinct signal rows (`min_signals: 2`) so a stray `argparse`
+  import in a random Python script doesn't auto-classify the whole repo as
+  a CLI tool.
+
+### Fixed
+
+- **Route extractor no longer leaks test-fixture routes.** Test directories
+  (`tests/`, `test/`, `__tests__/`, `spec/`, `specs/`, `e2e/`, `cypress/`,
+  `playwright/`, `__mocks__/`, `fixtures/`) and test-file naming patterns
+  (`*.test.*`, `*.spec.*`, `*_test.*`, `*_spec.*`, `*_test.go`) are now
+  skipped. Real-world regression: pointing `app-classifier` at a code-analysis
+  tool surfaced `/fake`, `/also-fake`, `/real` from its `tests/*.test.js`
+  fixtures as if they were production routes.
+
+### Compatibility
+
+- Backwards compatible. Public API unchanged. Test-directory skip is purely
+  additive — no fixture's expected routes overlap with the new skip list.
+
 ## [0.5.1] — 2026-05-22
 
 ### Fixed

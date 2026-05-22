@@ -1,0 +1,17 @@
+{
+  "name": "codegraph",
+  "version": "0.1.0",
+  "description": "Code repository analyzer — call graph + dependency graph for any codebase",
+  "bin": {
+    "codegraph": "bin/cli.js"
+  },
+  "dependencies": {
+    "commander": "^11.0.0",
+    "yargs": "^17.0.0",
+    "tree-sitter": "^0.21.0",
+    "tree-sitter-javascript": "^0.21.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
