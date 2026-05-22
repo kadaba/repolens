@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] — 2026-05-22
+
+### Fixed
+
+- README links to `docs/llm-providers.md` and `docs/code-mapping.md` now use
+  absolute GitHub URLs. PyPI only renders `README.md` — the `docs/` directory
+  isn't included in the published package, so relative links 404'd on
+  https://pypi.org/project/app-classifier/.
+
 ## [0.5.0] — 2026-05-22
 
 ### Added — multi-provider LLM layer

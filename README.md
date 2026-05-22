@@ -130,7 +130,7 @@ provider = OpenAIProvider(api_key="sk-...", model="gpt-4o-mini")
 result = classify_smart("./my-repo", llm_provider=provider)
 ```
 
-See [docs/llm-providers.md](docs/llm-providers.md) for per-provider examples (Groq, LM Studio, Ollama, vLLM, llama.cpp).
+See the [per-provider guide](https://github.com/kadaba/repolens/blob/main/oss/app-classifier/docs/llm-providers.md) for full quickstarts (Groq, LM Studio, Ollama, vLLM, llama.cpp, Together, Fireworks).
 
 ---
 
@@ -172,7 +172,7 @@ app-classifier ./my-repo --json            # JSON for piping
 - Cost / token caps per call
 - Tree-sitter-backed parsing (everything is stdlib + regex right now — fast, but imperfect)
 
-See [CHANGELOG.md](CHANGELOG.md) for what landed in each release.
+See the [CHANGELOG](https://github.com/kadaba/repolens/blob/main/oss/app-classifier/CHANGELOG.md) for what landed in each release. The [code-mapping guide](https://github.com/kadaba/repolens/blob/main/oss/app-classifier/docs/code-mapping.md) has impact-analysis recipes.
 
 ---
 
